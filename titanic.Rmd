@@ -1,0 +1,153 @@
+---
+title: "Titanic"
+output: html_notebook
+---
+
+
+### Źródło danych
+Dane pochądzą z platformy kaggle: https://www.kaggle.com/c/titanic/data
+
+```{r}
+library(tidyverse)
+set.seed(123)
+```
+
+
+# Wczytanie danych uczących
+
+```{r}
+all_training_df = read_csv("data/train.csv") 
+submission_df = read_csv("data/test.csv") 
+
+head(all_training_df)
+```
+
+```{r}
+summary(all_training_df)
+```
+
+- Utworzymy zbiór uczący i testowy
+```{R}
+train_sample = sample(nrow(all_training_df), 0.8*nrow(all_training_df))
+train_df = all_training_df[train_sample,]
+test_df = all_training_df[-train_sample,]
+```
+
+## Analiza zbioru uczącego
+- Ile mamy wierszy/kolumn?
+```{r}
+glimpse(train_df)
+```
+
+```{r}
+nrow(train_df)
+```
+```{r}
+ncol(train_df)
+```
+
+- Czy mamy brakujące wartości?
+```{r}
+for(col in colnames(train_df)){
+  has_nas = any(is.na(train_df[col]))
+  print(c(col,has_nas))
+}
+```
+- Zakres wartości `PassengerId`
+```{r}
+cat('min ', min(train_df$PassengerId),', max ',max(train_df$PassengerId),'\n')
+```
+
+- W rozbiciu przy pomocy zmiennej płci
+```{r}
+males = sum(train_df$Sex == "male")
+females = sum(train_df$Sex == "female")
+```
+
+albo - przy pomocy pakietu `dplyr`
+
+```{r}
+train_df %>% group_by(Sex) %>% count()
+```
+- W rozbiciu płeć/klasa
+
+```{r}
+train_df %>% group_by(Sex, Pclass) %>% count()
+```
+
+- Histogram wieku
+
+```{R}
+hist(train_df$Age)
+```
+
+wersja `ggplot2`
+
+```{R}
+ggplot(train_df, aes(Age)) + geom_histogram()
+```
+
+- Histogramy wieku w rozbiciu na płeć
+
+```{R}
+ggplot(train_df, aes(Age)) + geom_histogram() + facet_wrap(~Sex)
+```
+
+```{R}
+ggplot(train_df, aes(Age, fill=Sex)) + geom_histogram() 
+```
+
+- Histogram zmiennej celu
+
+```{r}
+hist(train_df$Survived)
+```
+- Wykres par zmiennych
+
+```{r}
+train_df %>% 
+  select(-Name, -Ticket, -Cabin) %>%
+  GGally::ggpairs()
+```
+
+# Pierwsze modele
+
+## Model naiwny - wszyscy zginęli
+
+
+```{r}
+table(train_df$Survived)
+
+naiveModel <- function(df){
+  rep(0, nrow(df))
+}
+
+table(train_df$Survived, naiveModel(train_df))
+```
+### Miara jakości modelu - dokładność
+
+```{r}
+acc <- function(truth, predictions){
+  100*sum(truth==predictions)/length(truth)
+}
+
+acc(train_df$Survived, naiveModel(train_df))
+
+```
+
+- Drzewo klasyfikacyjne
+```{r}
+library(rpart)
+m0 = rpart(Survived ~ Age + Pclass + Sex + SibSp + Fare, train_df)
+
+predictions = data.frame(truth=train_df$Survived, response=round(predict(m0, train_df)))
+acc(predictions$truth, predictions$response)
+```
+
+### Przygotowujemy wyniki do wysłania
+```{r}
+
+submission_df %>% dplyr::mutate(Survived = round(predict(m0, submission_df))) %>%
+    dplyr::select(PassengerId, Survived) %>%
+    readr::write_csv("submission.csv")
+```

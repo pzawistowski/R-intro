@@ -127,27 +127,26 @@ table(train_df$Survived, naiveModel(train_df))
 ### Miara jakości modelu - dokładność
 
 ```{r}
-acc <- function(truth, predictions){
+accuracy <- function(truth, predictions){
   100*sum(truth==predictions)/length(truth)
 }
 
-acc(train_df$Survived, naiveModel(train_df))
+accuracy(train_df$Survived, naiveModel(train_df))
 
 ```
 
 - Drzewo klasyfikacyjne
 ```{r}
 library(rpart)
-m0 = rpart(Survived ~ Age + Pclass + Sex + SibSp + Fare, train_df)
+m0 = rpart(Survived ~ Age + Pclass + Sex + SibSp + Fare, train_df, method="class")
 
-predictions = data.frame(truth=train_df$Survived, response=round(predict(m0, train_df)))
-acc(predictions$truth, predictions$response)
+predictions = data.frame(truth=train_df$Survived, response=predict(m0, train_df, type="class"))
+accuracy(predictions$truth, predictions$response)
 ```
 
 ### Przygotowujemy wyniki do wysłania
 ```{r}
-
-submission_df %>% dplyr::mutate(Survived = round(predict(m0, submission_df))) %>%
+submission_df %>% dplyr::mutate(Survived = predict(m0, submission_df, type="class")) %>%
     dplyr::select(PassengerId, Survived) %>%
     readr::write_csv("submission.csv")
 ```
